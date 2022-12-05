@@ -46,6 +46,12 @@ class CondaStoreKernelSpecManager(KernelSpecManager):
         help="Whether to include only the conda-store kernels not visible from Jupyter normally or not",
     )
 
+    kernel_path = Unicode(
+        "/usr/local/share/jupyter/kernels",
+        config=True,
+        help="Local path to kernelspecs"
+    )
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -98,6 +104,28 @@ class CondaStoreKernelSpecManager(KernelSpecManager):
                 ),
                 metadata={},
             )
+
+            self.log.info(f'Created spec for: {display_name}')
+            kernel_spec_write = kernel_specs[f"conda-store://{namespace}/{name}:{build}"]
+            kernel_name = self.clean_kernel_name(display_name)
+            
+            try:
+                self.log.info(f'Install kernelspec locally')
+                if not os.path.exists(f'{kernel_path}/{kernel_name}'):
+                    self.log.debug(f'Creating directory {kernel_path}/{kernel_name} for new kernelspec')
+                    os.makedirs(f'{kernel_path}/{kernel_name}')
+                kernel_spec = join(f'{kernel_path}/{kernel_name}', "kernel.json")
+                tmp_spec = kernel_spec_write.copy()
+                
+                self.log.info(f'Writing kernelspec to {kernel_spec} location')
+                with open(kernel_spec, "w") as f:
+                    json.dump(tmp_spec, f)
+            except OSError as error:
+                self.log.warning(
+                    u"[nb_conda_kernels] Fail to install kernel",
+                    exc_info=error
+                )
+
         return kernel_specs
 
     def find_kernel_specs(self):
@@ -128,3 +156,19 @@ class CondaStoreKernelSpecManager(KernelSpecManager):
 
     def remove_kernel_spec(self, name):
         pass
+
+    @staticmethod
+    def clean_kernel_name(kname):
+        """ Replaces invalid characters in the Jupyter kernelname, with
+            a bit of effort to preserve readability.
+        """
+        try:
+            kname.encode('ascii')
+        except UnicodeEncodeError:
+            # Replace accented characters with unaccented equivalents
+            import unicodedata
+            nfkd_form = unicodedata.normalize('NFKD', kname)
+            kname = u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+        # Replace anything else, including spaces, with underscores
+        kname = re.sub(r'[^a-zA-Z0-9._\-]', '_', kname)
+        return kname   
