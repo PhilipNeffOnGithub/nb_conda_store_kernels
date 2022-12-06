@@ -2,7 +2,7 @@ import tempfile
 import os
 
 from jupyter_client.kernelspec import KernelSpecManager, KernelSpec, NoSuchKernel
-from jupyter_client.utils import run_sync
+# from jupyter_client.utils import run_sync
 from traitlets import Bool, Unicode
 from conda_store import api
 
@@ -59,7 +59,8 @@ class CondaStoreKernelSpecManager(KernelSpecManager):
 
     @property
     def kernel_specs(self):
-        return run_sync(self._kernel_specs)()
+        return self._kernel_specs()
+        # return run_sync(self._kernel_specs)()
 
     async def _kernel_specs(self):
         async with api.CondaStoreAPI(
